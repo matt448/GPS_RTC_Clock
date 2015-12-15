@@ -1,3 +1,32 @@
+/*
+ * GPS_RTC_Clock
+ * 
+ * by Matthew McMillan
+ * 
+ * This is the code for a little nightstand clock I built. It runs on
+ * an Arduino Uno and it uses a GPS signal along with a RTC to keep
+ * pretty accurate time.
+ * 
+ * I used a lot Adafruit libraries on this project but the library that
+ * really makes this clock look great is William Zaggle's 'Large 7-Segment'
+ * function which can be found at the near the end of this code.
+ * 
+ * Hardware
+ * ---------
+ * Display: 2.2" Color TFT LCD which uses the ILI9340 chipset
+ * Micro: Arduino Uno
+ * GPS: Any GPS breakout that outputs NMEA strings over a serial interface
+ * 
+ * 
+ * matthew.mcmillan@gmail.com
+ * @matthewmcmillan
+ * http://matthewcmcmillan.blogspot.com/
+ * 
+ * 
+ * 
+ * 
+ */
+
 #include "SPI.h"
 #include "Adafruit_GFX.h"     //https://github.com/adafruit/Adafruit-GFX-Library
 #include "Adafruit_ILI9340.h" //https://github.com/adafruit/Adafruit_ILI9340
@@ -175,6 +204,8 @@ void loop()
   
   setBackLightBrightness();
 
+  //TO-DO: Sync the GPS time to RTC on a schedule. Once an hour or so.
+  //setRTCfromGPS();
 }
 
 
@@ -206,7 +237,8 @@ void secondDotDisplay2()
   /*
    * This displays an amimation for the seconds.
    * It moves a dashed line across the display and
-   * then blanks it out when it goes back to zero.
+   * then blanks it out as it moves. Less jarring
+   * than secondDotDisplay1.
    */
 
   if(second(local) == 0)
@@ -284,9 +316,7 @@ void tftDisplayDate()
    *  second line is the date in mm/dd/yyyy format
    *  The date is only redrawn for a few minutes after midnight
    *  or within the first few seconds of startup.
-   */
-
-  
+   */ 
   if(!rtcSet)
   {
     tft.setCursor(65, 50);
@@ -295,7 +325,6 @@ void tftDisplayDate()
   }else{
     if((hour(local) == 0 and minute(local) < 5) or millis() < 2500 or colorChange > 0)
     {
-      //TODO - Need to center the text based on the number of characters
       DateTime now = rtc.now();
       tft.setTextColor(numberColor, ILI9340_BLACK);  tft.setTextSize(2);
       //Set starting x for weekday pos. Size 2 characters are 10 pixels wide.
@@ -350,7 +379,7 @@ void tftDisplayDate()
 
 void tftDisplayTime()
 {
-
+  //TO-DO: Need to center the time based on the number of digits
   int am_pm_hour;
   if(!rtcSet)
   {
