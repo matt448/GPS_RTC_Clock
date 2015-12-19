@@ -68,7 +68,7 @@ RTC_DS1307 rtc;
 
 Adafruit_ILI9340 tft = Adafruit_ILI9340(_cs, _dc, _rst);
 
-char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+char daysOfTheWeek[7][12] = {"  Sunday  ", "  Monday  ", " Tuesday ", "Wednesday", " Thursday ", "  Friday  ", " Saturday "};
 
 bool rtcSet = false;
 
@@ -204,6 +204,8 @@ void loop()
   
   setBackLightBrightness();
 
+  //TO-DO: Add an AM/PM indicator
+  
   //TO-DO: Sync the GPS time to RTC on a schedule. Once an hour or so.
   //setRTCfromGPS();
 }
@@ -220,7 +222,7 @@ void secondDotDisplay1()
   /*
    * This displays an amimation for the seconds.
    * It moves a dashed line across the display and
-   * then blanks it out when it goes back to zero.
+   * then blanks it out when seconds go back to zero.
    */
   if(second(local) == 0)
   {
