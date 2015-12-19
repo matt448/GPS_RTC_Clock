@@ -48,6 +48,7 @@
 #include <Time.h>        //https://github.com/PaulStoffregen/Time
 #include <Timezone.h>    //https://github.com/JChristensen/Timezone
 
+
 #include <TinyGPS++.h>
 #include <SoftwareSerial.h>
 /*
@@ -157,14 +158,8 @@ void setup()
   tft.begin();
   tft.fillScreen(ILI9340_BLACK);
 
- 
-  tft.drawFastHLine(0, 72, 240, ILI9340_BLUE);
-  tft.drawFastHLine(0, 73, 240, ILI9340_BLUE);
-  tft.drawFastHLine(0, 74, 240, ILI9340_BLUE);
+  secondsBorder();
 
-  tft.drawFastHLine(0, 90, 240, ILI9340_BLUE);
-  tft.drawFastHLine(0, 91, 240, ILI9340_BLUE);
-  tft.drawFastHLine(0, 92, 240, ILI9340_BLUE);
 }
 
 
@@ -179,10 +174,11 @@ void loop()
     setRTCfromGPS();
     checkRTCset();
   }
-  // This sketch displays information every time a new sentence is correctly encoded.
+
+  // Read GPS data from serial connection util
+  // no more data is available
   while (ss.available() > 0)
-    if (gps.encode(ss.read()))
-      //displayInfo();
+    gps.encode(ss.read());
 
   if (millis() > 5000 && gps.charsProcessed() < 10)
   {
@@ -206,8 +202,8 @@ void loop()
 
   //TO-DO: Add an AM/PM indicator
   
-  //TO-DO: Sync the GPS time to RTC on a schedule. Once an hour or so.
-  //setRTCfromGPS();
+  //Syncs GPS time to the RTC at 2am.
+  scheduledSync();
 }
 
 
@@ -215,6 +211,17 @@ void loop()
 ////////////////////////////////////
 // FUNCTIONS
 ////////////////////////////////////
+
+void secondsBorder()
+{
+  tft.drawFastHLine(0, 72, 240, ILI9340_BLUE);
+  tft.drawFastHLine(0, 73, 240, ILI9340_BLUE);
+  tft.drawFastHLine(0, 74, 240, ILI9340_BLUE);
+
+  tft.drawFastHLine(0, 90, 240, ILI9340_BLUE);
+  tft.drawFastHLine(0, 91, 240, ILI9340_BLUE);
+  tft.drawFastHLine(0, 92, 240, ILI9340_BLUE);
+}
 
 
 void secondDotDisplay1()
@@ -233,6 +240,7 @@ void secondDotDisplay1()
   }
   tft.drawFastVLine(second(local)*4, 80, 5, ILI9340_GREEN);
 }
+
 
 void secondDotDisplay2()
 {
@@ -278,6 +286,7 @@ void setNumberColor()
   
 }
 
+
 void setBackLightBrightness()
 {
   /* Takes a reading from the photocell to
@@ -304,7 +313,7 @@ void setBackLightBrightness()
   }
   if (photocellReading < 20)
   {
-    backlightVal = 7;
+    backlightVal = 5;
   }
 
   analogWrite(backlightPin, backlightVal);
@@ -379,6 +388,7 @@ void tftDisplayDate()
   }
 }
 
+
 void tftDisplayTime()
 {
   //TO-DO: Need to center the time based on the number of digits
@@ -414,6 +424,7 @@ void tftDisplayGPSsats()
   }
 }
 
+
 void checkRTCset()
 {
   DateTime now = rtc.now();
@@ -429,11 +440,13 @@ void checkRTCset()
   }
 }
 
+
 void setRTCfromGPS()
 {
-  // This line sets the RTC with an explicit date & time, for example to set
-  // January 21, 2014 at 3am you would call:
-  // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+  /* This line sets the RTC with an explicit date & time, for example to set
+   * January 21, 2014 at 3am you would call:
+   * rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+   */
   Serial.println("Setting RTC from GPS");
   Serial.println();
   if (gps.date.isValid() && gps.time.isValid())
@@ -445,55 +458,17 @@ void setRTCfromGPS()
   }
 }
 
-void displayInfo()
+
+void scheduledSync()
 {
-  Serial.print(F("Location: ")); 
-  if (gps.location.isValid())
+  /*
+   * Re-syncs the RTC with the time stamp from the GPS data once a day at 2am.
+   */
+  DateTime now = rtc.now();
+  if(hour(local) == 2 && minute(local) == 00 && second(local) == 15)
   {
-    Serial.print(gps.location.lat(), 6);
-    Serial.print(F(","));
-    Serial.print(gps.location.lng(), 6);
+    setRTCfromGPS();
   }
-  else
-  {
-    Serial.print(F("INVALID"));
-  }
-
-  Serial.print(F("  Date/Time: "));
-  if (gps.date.isValid())
-  {
-    Serial.print(gps.date.month());
-    Serial.print(F("/"));
-    Serial.print(gps.date.day());
-    Serial.print(F("/"));
-    Serial.print(gps.date.year());
-  }
-  else
-  {
-    Serial.print(F("INVALID"));
-  }
-
-  Serial.print(F(" "));
-  if (gps.time.isValid())
-  {
-    if (gps.time.hour() < 10) Serial.print(F("0"));
-    Serial.print(gps.time.hour());
-    Serial.print(F(":"));
-    if (gps.time.minute() < 10) Serial.print(F("0"));
-    Serial.print(gps.time.minute());
-    Serial.print(F(":"));
-    if (gps.time.second() < 10) Serial.print(F("0"));
-    Serial.print(gps.time.second());
-    Serial.print(F("."));
-    if (gps.time.centisecond() < 10) Serial.print(F("0"));
-    Serial.print(gps.time.centisecond());
-  }
-  else
-  {
-    Serial.print(F("INVALID"));
-  }
-
-  Serial.println();
 }
 
 
