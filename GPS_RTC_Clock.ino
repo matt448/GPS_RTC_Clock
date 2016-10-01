@@ -101,6 +101,8 @@ time_t utc, local;
 unsigned long previousMillis = 0;
 unsigned long currentMillis = 0;
 
+bool newboot = true;
+
 ////////////////////////////////////
 // SETUP
 ////////////////////////////////////
@@ -201,6 +203,8 @@ void loop()
   setBackLightBrightness();
 
   //TO-DO: Add an AM/PM indicator
+
+  syncOnBoot();
   
   //Syncs GPS time to the RTC at 2am.
   scheduledSync();
@@ -437,6 +441,26 @@ void checkRTCset()
     Serial.println("RTC TIME SET.");
     Serial.println();
 
+  }
+}
+
+
+void syncOnBoot()
+{
+  if(newboot)
+  {
+    int satcount = gps.satellites.value();
+
+    if (gps.date.isValid() && gps.time.isValid() && satcount > 4)
+    {
+      Serial.print("New boot. Need to updating RTC with GPS time. Sat count: ");
+      Serial.println(satcount);
+      setRTCfromGPS();
+      newboot = false;
+    }else{
+      Serial.print("GPS not ready yet. Waiting for fix. Sat count: ");
+      Serial.println(satcount);
+    }
   }
 }
 
