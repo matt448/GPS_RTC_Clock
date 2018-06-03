@@ -30,6 +30,13 @@
 #include "SPI.h"
 #include "Adafruit_GFX.h"     //https://github.com/adafruit/Adafruit-GFX-Library
 #include "Adafruit_ILI9340.h" //https://github.com/adafruit/Adafruit_ILI9340
+#include "RTClib.h"           //https://github.com/adafruit/RTClib
+#include <DS1307RTC.h>        //http://www.arduino.cc/playground/Code/Time
+#include <Time.h>             //https://github.com/PaulStoffregen/Time
+#include <Timezone.h>         //https://github.com/JChristensen/Timezone
+#include <TinyGPS++.h>        //https://github.com/mikalhart/TinyGPSPlus
+#include <SoftwareSerial.h>
+#include <Wire.h>
 
 // These are the pins used for the UNO
 // for Due/Mega/Leonardo use the hardware SPI pins (which are different)
@@ -40,22 +47,8 @@
 #define _rst 9
 #define _dc 8
 
-// Date and time functions using a DS1307 RTC connected via I2C and Wire lib
-#include <Wire.h>
-#include "RTClib.h"       //https://github.com/adafruit/RTClib
 
-#include <DS1307RTC.h>   //http://www.arduino.cc/playground/Code/Time
-#include <Time.h>        //https://github.com/PaulStoffregen/Time
-#include <Timezone.h>    //https://github.com/JChristensen/Timezone
-
-
-#include <TinyGPS++.h>
-#include <SoftwareSerial.h>
-/*
-   This sample sketch demonstrates the normal use of a TinyGPS++ (TinyGPSPlus) object.
-   It requires the use of SoftwareSerial, and assumes that you have a
-   9600-baud serial GPS device hooked up on pins 4(rx) and 3(tx).
-*/
+// Serial config for the GPS module
 static const int RXPin = 4, TXPin = 3;
 static const uint32_t GPSBaud = 9600;
 
@@ -100,6 +93,8 @@ time_t utc, local;
 //variables for time counting
 unsigned long previousMillis = 0;
 unsigned long currentMillis = 0;
+unsigned long syncTimer = 0;
+unsigned long scheduledTimer = 0;
 
 bool newboot = true;
 
@@ -117,12 +112,12 @@ void setup()
   ss.begin(GPSBaud);
 
   if (! rtc.begin()) {
-    Serial.println("Couldn't find RTC");
+    Serial.println(F("Couldn't find RTC"));
     while (1);
   }
 
   if (! rtc.isrunning()) {
-    Serial.println("RTC is NOT running!");
+    Serial.println(F("RTC is NOT running!"));
     // following line sets the RTC to the date & time this sketch was compiled
     //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
     // This line sets the RTC with an explicit date & time, for example to set
@@ -153,9 +148,9 @@ void setup()
 
   setSyncProvider(RTC.get);   // the function to get the time from the RTC
     if(timeStatus()!= timeSet) 
-        Serial.println("Unable to sync with the RTC");
+        Serial.println(F("Unable to sync with the RTC"));
     else
-        Serial.println("RTC has set the system time");      
+        Serial.println(F("RTC has set the system time"));
 
   tft.begin();
   tft.fillScreen(ILI9340_BLACK);
@@ -172,17 +167,17 @@ void setup()
 
 void loop()
 { 
+  currentMillis = millis();
   if(!rtcSet){
     setRTCfromGPS();
     checkRTCset();
   }
 
-  // Read GPS data from serial connection util
-  // no more data is available
+  // Read GPS data from serial connection until no more data is available
   while (ss.available() > 0)
     gps.encode(ss.read());
 
-  if (millis() > 5000 && gps.charsProcessed() < 10)
+  if (currentMillis > 5000 && gps.charsProcessed() < 10)
   {
     Serial.println(F("No GPS detected: check wiring."));
     while(true);
@@ -453,13 +448,17 @@ void syncOnBoot()
 
     if (gps.date.isValid() && gps.time.isValid() && satcount > 4)
     {
-      Serial.print("New boot. Need to updating RTC with GPS time. Sat count: ");
+      Serial.print(F("New boot. Need to update RTC with GPS time. Sat count: "));
       Serial.println(satcount);
       setRTCfromGPS();
       newboot = false;
+      syncTimer = 0;
     }else{
-      Serial.print("GPS not ready yet. Waiting for fix. Sat count: ");
-      Serial.println(satcount);
+      if(currentMillis > (syncTimer + 250)){
+        Serial.print(F("GPS not ready yet. Waiting for fix. Sat count: "));
+        Serial.println(satcount);
+        syncTimer = currentMillis;
+      }
     }
   }
 }
@@ -476,9 +475,9 @@ void setRTCfromGPS()
   if (gps.date.isValid() && gps.time.isValid())
   {
     rtc.adjust(DateTime(gps.date.year(), gps.date.month(), gps.date.day(), gps.time.hour(), gps.time.minute(), gps.time.second()));
-    Serial.println("RTC set from GPS");
+    Serial.println(F("RTC set from GPS"));
   }else{
-    Serial.println("No GPS fix yet. Can't set RTC yet.");
+    Serial.println(F("No GPS fix yet. Can't set RTC yet."));
   }
 }
 
@@ -488,10 +487,14 @@ void scheduledSync()
   /*
    * Re-syncs the RTC with the time stamp from the GPS data once a day at 2am.
    */
-  DateTime now = rtc.now();
-  if(hour(local) == 2 && minute(local) == 00 && second(local) == 15)
-  {
-    setRTCfromGPS();
+  if(currentMillis > (scheduledTimer + 60000)){  //Only allow RTC sync to happen once every 60 sec
+    DateTime now = rtc.now();
+    if(minute(local) == 21)
+    {
+      Serial.println(F("Scheduled RTC sync from GPS Time"));
+      setRTCfromGPS();
+    }
+    scheduledTimer = currentMillis;
   }
 }
 
